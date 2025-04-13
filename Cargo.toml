@@ -1,0 +1,12 @@
+[package]
+name = "hello-rust"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[profile.release]
+opt-level = "s"  # Optimize for size.
+strip = true  # Automatically strip symbols from the binary.
+codegen-units = 1
+panic = "abort"
