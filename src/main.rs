@@ -2,10 +2,7 @@ mod equation;
 use core::f32;
 use std::{ops};
 
-struct Helice{
-    curve : Curve
-}
-
+use crate::equation::parse_expression;
 
 #[derive(Debug, Clone, Copy)]
 struct Point{
@@ -39,11 +36,11 @@ impl Point{
 }
 
 impl Curve {
-    fn sample_from_function(f : equation::GenerativeFunction, n : i32, start : f32, end : f32) -> Curve{
+    fn sample_from_function(e : equation::Expression, n : i32, start : f32, end : f32) -> Curve{
         Curve{points : (0..n).map( |j| {Point{fields :
                 core::array::from_fn(|i| {
                     let x = start + (end - start) * (j as f32) / ((n-1) as f32);
-                    if i == 0 {x} else {f(x)}
+                    if i == 0 {x} else {e.evaluate(x)}
                 })}
             }).collect()}
     }
@@ -77,8 +74,10 @@ impl Curve {
 
 
 fn main() {
-    //let c = Curve::create(10);
-    let c = Curve::sample_from_function(f32::sin, 10, 0f32, f32::consts::PI);
-    c.print();
-    println!("Interpolated = {}", c.interpolated(10.5).fields[1]);
+    //let b = Curve::create(10);
+    //b.print();
+    println!("Expression evaluated to {}", parse_expression("sin(x)^2 + cos(x)^2").evaluate(30.141592));
+    //let c = Curve::sample_from_function(equation::Expression::create_from_function(f32::sin), 10, 0f32, f32::consts::PI);
+    //c.print();
+    //println!("Interpolated = {}", c.interpolated(0.5).fields[1]);
 }
