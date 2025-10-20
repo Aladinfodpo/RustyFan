@@ -1,5 +1,6 @@
 mod equation;
 use std::{io::stdin, ops, panic};
+use std::collections::HashMap;
 
 use crate::equation::test_filter;
 
@@ -39,7 +40,7 @@ impl Curve {
         Curve{points : (0..n).map( |j| {Point{fields :
                 core::array::from_fn(|i| {
                     let x = start + (end - start) * (j as f32) / ((n-1) as f32);
-                    if i == 0 {x} else {e.evaluate(x)}
+                    if i == 0 {x} else {e.simple_evaluate(x)}
                 })}
             }).collect()}
     }
@@ -78,12 +79,15 @@ fn main() {
     //equation::test_parsing("tan(8*x) - (5/(4/8+9))", "-(tan*(8,x),/(5,+(/(4,8),9)))", 30.0, 2.3757696);
 
     let mut s=String::new();
+    let mut variables : HashMap<String,f32> = HashMap::new();
     loop{
         println!("Enter an expression :");
-        stdin().read_line(& mut s);
-        if let Some('\n') = s.chars().next_back() { s.pop(); }
-        if let Some('\r') = s.chars().next_back() { s.pop(); }
-        let result = test_filter(s.clone());
+        let _ = stdin().read_line(& mut s);
+
+        if matches!(s.chars().next_back(), Some('\n')) { s.pop(); }
+        if matches!(s.chars().next_back(), Some('\r')) { s.pop(); }
+
+        test_filter(s.clone(), &mut variables);
         s.clear();
         println!("");
     }

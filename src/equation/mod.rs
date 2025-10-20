@@ -1,4 +1,5 @@
-use std::{ops::Mul, vec};
+use std::{vec};
+use std::collections::HashMap;
 
 pub type SimpleFunction = fn(f32) -> f32;
 type MultiFunction = fn(&[f32]) -> f32;
@@ -6,7 +7,9 @@ enum Function {
     MultiFunction(MultiFunction),
     SimpleFunction(SimpleFunction),
     Constant (f32),
-    Variable
+    InputX,
+    Variable(String),
+    Assign
 }
 
 fn function_from_string(s : &str) -> Option<Function>{
@@ -49,8 +52,9 @@ pub struct Expression{
 }
 
 impl Expression{
-    pub fn evaluate(&self, x : f32) -> f32{
-        let param_values : Vec<f32> = self.params.iter().map(|e| e.evaluate(x)).collect();
+
+    pub fn evaluate(&self, x : f32, variables : &mut HashMap<String, f32>) -> f32{
+        let param_values : Vec<f32> = self.params.iter().map(|e| e.evaluate(x, variables)).collect();
         match &self.function {
             Function::SimpleFunction(f) => {
                 f(param_values[0])
@@ -61,10 +65,29 @@ impl Expression{
             Function::Constant(c) => {
                 *c
             }
-            Function::Variable => {
+            Function::Variable(s) => {
+                match variables.get(s) {
+                    Some(res) => *res,
+                    None => 0.0
+                }
+                
+            }
+            Function::InputX => {
                 x
+            },
+            Function::Assign =>{
+                match &self.params[0].function {
+                    Function::Variable(s) => {variables.insert(s.to_string(), param_values[1]); },
+                    _ => panic!("Incorrect use of assignement")
+                }
+                param_values[1]
             }
         }
+    }
+
+    pub fn simple_evaluate(&self, x : f32) -> f32 {
+        let mut variables : HashMap<String,f32> = HashMap::new();
+        self.evaluate(x, &mut variables)
     }
 
     pub fn create_from_function(f : SimpleFunction) -> Expression {
@@ -87,7 +110,8 @@ enum Operator {
     Space,
     Comma,
     Factorial,
-    Square
+    Square,
+    Assign
 }
 
 impl Operator {
@@ -104,6 +128,7 @@ impl Operator {
             ',' => Some(Operator::Comma),
             '!' => Some(Operator::Factorial),
             '²' => Some(Operator::Square),
+            '=' => Some(Operator::Assign),
             _ => None,
         }
     }
@@ -120,6 +145,7 @@ impl Operator {
             Operator::Comma => ',',
             Operator::Factorial => '!',
             Operator::Square => '²',
+            Operator::Assign => '=',
         }
     }
 
@@ -136,6 +162,7 @@ impl Operator {
             Operator::Space => 0,
             Operator::Comma => 255,
             Operator::Factorial => 5,
+            Operator::Assign => 0,
         }
     }
 
@@ -147,6 +174,7 @@ impl Operator {
             Operator::Div => Function::MultiFunction(|x| x[0] / x[1]),
             Operator::Pow => Function::MultiFunction(|x| x[0].powf(x[1])),
             Operator::Square => Function::SimpleFunction(|x| x * x),
+            Operator::Assign => Function::Assign,
             Operator::Factorial => Function::SimpleFunction(|x| {
                 if x < 0.0 {
                     return 0.0;
@@ -288,11 +316,13 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
         Token::Identifier(s) => { 
             let func = match function_from_string(&s) {
                 None => {
-                    if s == "x" { Function::Variable
-                    }else{ Function::Constant(match s.parse() {
-                        Ok(res) => res,
-                        Err(e) => {return Err("Failed id parsing : ".to_string() + &e.to_string());}
-                    }) }
+                    if s == "x" { Function::InputX
+                    }else{ 
+                        match s.parse() {
+                            Ok(res) => Function::Constant(res),
+                            Err(_) => Function::Variable(s.clone())
+                        } 
+                    }
                 },
                 Some(function) => {function}
             };
@@ -300,7 +330,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                 Some(Token::Operator(Operator::ParensOpen)) => {
                     tokens.remove(0);
                     match func {
-                        Function::Constant(_) | Function::Variable => Ok(Expression { function: Operator::Mul.get_function(), params: vec![Expression{function: func, params: vec![]}, match_expression(tokens)?] }),
+                        Function::Assign | Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function: func, params: vec![]}),
                         Function::SimpleFunction(_) => Ok(Expression { function: func, params: vec![match_expression(tokens)?] }),
                         Function::MultiFunction(_) => {
                             let mut params : Vec<Expression> = vec![match_expression(tokens)?];
@@ -317,7 +347,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                 _ => { 
                     match func {
                         Function::MultiFunction(_) | Function::SimpleFunction(_) => panic!("Error unexpected identifier : {}", s),
-                        Function::Constant(_) | Function::Variable => Ok(Expression{function : func, params: vec![]}),
+                        Function::Assign |Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function : func, params: vec![]}),
                     }
                 }
             }
@@ -361,7 +391,7 @@ pub fn parse_expression(s : &str) -> Result<Expression, String>{
     Ok(parsed)
 }
 
-pub fn test_filter(s: String) {
+pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
     let mut tokens = split_operator(&s);
     let res_parsing = filter_tokens_priority(&mut tokens);
     match res_parsing {
@@ -377,7 +407,7 @@ pub fn test_filter(s: String) {
             println!("Given           : {}", s);
             println!("Pased           : {}", res);
             println!("Evaluated (30.0): {}", match parse_expression(&s){
-                Ok(expression) => expression.evaluate(30.0).to_string(),
+                Ok(expression) => expression.evaluate(30.0, variables).to_string(),
                 Err(e) => e
             })
         }
