@@ -1,8 +1,7 @@
 mod equation;
-use core::f32;
-use std::{ops};
+use std::{io::stdin, ops, panic};
 
-use crate::equation::parse_expression;
+use crate::equation::test_filter;
 
 #[derive(Debug, Clone, Copy)]
 struct Point{
@@ -74,9 +73,24 @@ impl Curve {
 
 
 fn main() {
+    //equation::test_parsing("(sin(x)^2) + (cos(x)^2)", "+(^(sinx,2),^(cosx,2))", 30.0, 1.0);
+    //equation::test_parsing("(4-5+2)", "+(-(4,5),2)", 30.0, 1.0);
+    //equation::test_parsing("tan(8*x) - (5/(4/8+9))", "-(tan*(8,x),/(5,+(/(4,8),9)))", 30.0, 2.3757696);
+
+    let mut s=String::new();
+    loop{
+        println!("Enter an expression :");
+        stdin().read_line(& mut s);
+        if let Some('\n') = s.chars().next_back() { s.pop(); }
+        if let Some('\r') = s.chars().next_back() { s.pop(); }
+        let result = test_filter(s.clone());
+        s.clear();
+        println!("");
+    }
+
     //let b = Curve::create(10);
     //b.print();
-    println!("Expression evaluated to {}", parse_expression("sin(x)^2 + cos(x)^2").evaluate(30.141592));
+    //println!("Expression evaluated to {}", parse_expression("(sin(x)^2) + (cos(x)^2)").evaluate(30.0)); 
     //let c = Curve::sample_from_function(equation::Expression::create_from_function(f32::sin), 10, 0f32, f32::consts::PI);
     //c.print();
     //println!("Interpolated = {}", c.interpolated(0.5).fields[1]);
