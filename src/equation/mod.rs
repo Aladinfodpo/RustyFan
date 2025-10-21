@@ -1,3 +1,4 @@
+use core::f32;
 use std::{vec};
 use std::collections::HashMap;
 
@@ -7,13 +8,15 @@ enum Function {
     MultiFunction(MultiFunction),
     SimpleFunction(SimpleFunction),
     Constant (f32),
+    Iterator(Operator),
     InputX,
     Variable(String),
     Assign
 }
 
 fn function_from_string(s : &str) -> Option<Function>{
-    match s {
+
+    match s.to_ascii_lowercase().as_str() {
         "sin" => Some(Function::SimpleFunction(f32::sin)),
         "cos" => Some(Function::SimpleFunction(f32::cos)),
         "tan" => Some(Function::SimpleFunction(f32::tan)),
@@ -38,8 +41,13 @@ fn function_from_string(s : &str) -> Option<Function>{
         "acosh" => Some(Function::SimpleFunction(f32::acosh)),
         "atanh" => Some(Function::SimpleFunction(f32::atanh)),
 
+        "pi" => Some(Function::Constant(f32::consts::PI)),
+        "e" => Some(Function::Constant(f32::consts::E)),
+
         "max" => Some(Function::MultiFunction(|x| x.iter().fold(f32::MIN, |max, next| max.max(*next)))),
         "min" => Some(Function::MultiFunction(|x| x.iter().fold(f32::MAX, |min, next| min.min(*next)))),
+        "sum" => Some(Function::Iterator(Operator::Add)),
+        "prod" => Some(Function::Iterator(Operator::Mul)),
         
         "pow" => Some(Function::MultiFunction(|x| x[0].powf(x[1]))),
         _ => None
@@ -54,7 +62,10 @@ pub struct Expression{
 impl Expression{
 
     pub fn evaluate(&self, x : f32, variables : &mut HashMap<String, f32>) -> f32{
-        let param_values : Vec<f32> = self.params.iter().map(|e| e.evaluate(x, variables)).collect();
+        let param_values : Vec<f32> = match &self.function {
+            Function::Iterator(_) => vec![],
+            _ => self.params.iter().map(|e| e.evaluate(x, variables)).collect()
+        };
         match &self.function {
             Function::SimpleFunction(f) => {
                 f(param_values[0])
@@ -70,7 +81,6 @@ impl Expression{
                     Some(res) => *res,
                     None => 0.0
                 }
-                
             }
             Function::InputX => {
                 x
@@ -81,6 +91,41 @@ impl Expression{
                     _ => panic!("Incorrect use of assignement")
                 }
                 param_values[1]
+            },
+            Function::Iterator(o) =>{
+                match &self.params[0].function {
+                    Function::Assign => {
+                        match &self.params[0].params[0].function {
+                            Function::Variable(it) => {
+                                let mut intermediate_variables = variables.clone();
+
+                                let mut res = match o {
+                                    Operator::Add => 0.0,
+                                    Operator::Mul => 1.0,
+                                    _ => panic!("Internal error non authorised operation in iterator")
+                                };
+
+                                let max = self.params[1].evaluate(x, variables).round() as i32;
+                                let mut current = self.params[0].params[1].evaluate(x, variables).round() as i32;
+                                
+                                while current <= max {
+                                    intermediate_variables.insert(it.to_string(), current as f32);
+
+                                    res = match o {
+                                        Operator::Add => res + self.params[2].evaluate(x, &mut intermediate_variables),
+                                        Operator::Mul => res * self.params[2].evaluate(x, &mut intermediate_variables),
+                                        _ => panic!("Internal error non authorised operation in iterator")
+                                    };
+
+                                    current = current + 1;
+                                }
+                                res
+                            },  
+                            _ => panic!("Incorrect use of assignement"),
+                        }
+                    }
+                    _ => panic!("Incorrect use of iterator")  
+                }
             }
         }
     }
@@ -201,6 +246,7 @@ enum Token {
 fn split_operator(s : &str) -> Vec<Token>{
     let mut parts : Vec<Token> = vec![];
     let mut current_expr = String::new();
+    let mut is_numeric = true;
     for c in s.chars() {
         match Operator::from_char(c) {
             Some(op) => {
@@ -212,6 +258,13 @@ fn split_operator(s : &str) -> Vec<Token>{
                 current_expr = String::new();
             }
             None => {
+                if !(c.is_ascii_digit() || c == '.') {
+                    if !current_expr.is_empty() && is_numeric {
+                        parts.push(Token::Identifier(current_expr));
+                        current_expr = String::new();
+                    }
+                    is_numeric = false;
+                }
                 current_expr.push(c);
             }
         }
@@ -332,7 +385,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                     match func {
                         Function::Assign | Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function: func, params: vec![]}),
                         Function::SimpleFunction(_) => Ok(Expression { function: func, params: vec![match_expression(tokens)?] }),
-                        Function::MultiFunction(_) => {
+                        Function::MultiFunction(_) | Function::Iterator(_) => {
                             let mut params : Vec<Expression> = vec![match_expression(tokens)?];
                             loop{
                                 match tokens.get(0) {
@@ -346,7 +399,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                 }
                 _ => { 
                     match func {
-                        Function::MultiFunction(_) | Function::SimpleFunction(_) => panic!("Error unexpected identifier : {}", s),
+                        Function::MultiFunction(_) | Function::SimpleFunction(_) | Function::Iterator(_) => panic!("Error unexpected identifier : {}", s),
                         Function::Assign |Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function : func, params: vec![]}),
                     }
                 }
@@ -404,7 +457,6 @@ pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
                     Token::Identifier(s) => res += &s,
                 }
             }
-            println!("Given           : {}", s);
             println!("Pased           : {}", res);
             println!("Evaluated (30.0): {}", match parse_expression(&s){
                 Ok(expression) => expression.evaluate(30.0, variables).to_string(),

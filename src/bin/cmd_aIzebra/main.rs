@@ -1,9 +1,10 @@
+#[path = "../../equation/mod.rs"]
 mod equation;
+
 use std::{io::stdin, ops, panic};
 use std::collections::HashMap;
 
-use crate::equation::test_filter;
-
+/*
 #[derive(Debug, Clone, Copy)]
 struct Point{
     fields : [f32; Point::NUM_FIELD]
@@ -70,14 +71,10 @@ impl Curve {
             Some(_) => *self.points.first().expect("Empty curve")
         }
     }
-}
+}*/
 
 
 fn main() {
-    //equation::test_parsing("(sin(x)^2) + (cos(x)^2)", "+(^(sinx,2),^(cosx,2))", 30.0, 1.0);
-    //equation::test_parsing("(4-5+2)", "+(-(4,5),2)", 30.0, 1.0);
-    //equation::test_parsing("tan(8*x) - (5/(4/8+9))", "-(tan*(8,x),/(5,+(/(4,8),9)))", 30.0, 2.3757696);
-
     let mut s=String::new();
     let mut variables : HashMap<String,f32> = HashMap::new();
     loop{
@@ -87,7 +84,7 @@ fn main() {
         if matches!(s.chars().next_back(), Some('\n')) { s.pop(); }
         if matches!(s.chars().next_back(), Some('\r')) { s.pop(); }
 
-        test_filter(s.clone(), &mut variables);
+        equation::test_filter(s.clone(), &mut variables);
         s.clear();
         println!("");
     }

@@ -1,9 +1,16 @@
 [package]
-name = "hello-rust"
+name = "aIzebra"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "cmd_aIzebra"
+
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
+
 
 [profile.release]
 opt-level = "s"  # Optimize for size.
