@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 
-
 [profile.release]
 opt-level = "s"  # Optimize for size.
 strip = true  # Automatically strip symbols from the binary.

@@ -29,7 +29,7 @@ pub extern "C" fn parse(expression: *const std::os::raw::c_char) -> i32 {
     let input = unsafe { CStr::from_ptr(expression) }.to_string_lossy().into_owned();
     let mut state = get_state().lock().unwrap();
     match equation::parse_expression(&input) {
-        Ok(res) => {state.expressions.push(res); (state.expressions.len()-1) as i32},
+        Ok(res) => {state.expressions.push(res); state.last_error = None; (state.expressions.len()-1) as i32},
         Err(e) => {state.last_error = Some(e); -1}
     }
 }
@@ -44,6 +44,7 @@ pub extern "C" fn evaluate(in_index: i32, x: f32) -> f32 {
         let droped = state.expressions.remove(index);
         let res = droped.evaluate(x, &mut state.variables);
         state.expressions.insert(index, droped);
+        state.last_error = None;
         res
     }else{
         state.last_error = Some("Index of evaluated expression not found".to_string()); 0.0
@@ -57,7 +58,7 @@ pub extern "C" fn get_last_error_buff(buf: *mut c_char, buf_len: c_int) -> c_int
     }
 
     let state = get_state().lock().unwrap();
-    let msg = state.last_error.as_deref().unwrap_or("No error");
+    let msg = state.last_error.as_deref().unwrap_or("");
 
     // Copy up to buf_len - 1 bytes
     let bytes = msg.as_bytes();
@@ -74,7 +75,7 @@ pub extern "C" fn get_last_error_buff(buf: *mut c_char, buf_len: c_int) -> c_int
 #[unsafe(no_mangle)]
 pub extern "C" fn get_last_error() -> *const std::os::raw::c_char {
     let state = get_state().lock().unwrap();
-    let msg = state.last_error.clone().unwrap_or_else(|| "No error".to_string());
+    let msg = state.last_error.clone().unwrap_or_else(|| "".to_string());
     std::ffi::CString::new(msg).unwrap().into_raw()
 }
 

@@ -439,7 +439,13 @@ pub fn parse_expression(s : &str) -> Result<Expression, String>{
     let mut filtered = filter_tokens_priority(&mut tokens)?;
     let mut parsed = match_expression(&mut filtered)?;
     while !filtered.is_empty() {
-        parsed = Expression { function: Operator::Mul.get_function(), params: vec![parsed, match_expression(&mut filtered)?]  }
+        match parsed.function {
+            Function::Assign => {let e = Expression { function: Operator::Mul.get_function(), params: vec![parsed.params.remove(0), parsed.params.remove(0)]};
+            parsed.params.push(match_expression(&mut filtered)?);
+            parsed.params.push(e);
+            },
+            _ => parsed = Expression { function: Operator::Mul.get_function(), params: vec![parsed, match_expression(&mut filtered)?]  }
+        }
     }
     Ok(parsed)
 }
