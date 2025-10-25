@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'rust_lib.dart';
+import 'graph.dart';
+import 'dart:math';
 
 void main() {
   runApp(const MyApp());
@@ -15,21 +17,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
@@ -40,41 +27,38 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+typedef LastExpression = ({String expression, double x, double res, int iExpression});
+
 class _MyHomePageState extends State<MyHomePage> {
   TextEditingController controllerExpr = TextEditingController(text: "sin(x)");
   TextEditingController controllerX = TextEditingController(text: "20");
   double? res;
   String? error;
-  int indexE = 0;
-  List<String> last = [];
+  int indexE = -1;
+  List<LastExpression> last = [];
+  bool isHistoric = true;
+
 
   void _incrementCounter() {
     setState(() {
-      if(!Parser().parse(controllerExpr.text)){
+      if (!Parser().parse(controllerExpr.text)) {
         error = Parser().lastError;
         res = null;
         return;
       }
-      res = Parser().evaluate(indexE++, double.tryParse(controllerX.text) ?? 0);
-      if(res == null){
+      final x = double.tryParse(controllerX.text) ?? 0;
+      res = Parser().evaluate(++indexE, x);
+      if (res == null) {
         error = Parser().lastError;
+      } else {
+        last.insert(0, (expression: controllerExpr.text, x: x, res: res!, iExpression: indexE));
       }
-      last.add(controllerExpr.text);
     });
   }
 
@@ -91,30 +75,41 @@ class _MyHomePageState extends State<MyHomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Card(child: SizedBox(height: 100, width: 300, child:Center(child:
-              Text(style: TextStyle(fontSize: 16), res == null ? (error ?? "") : res.toString()),),),),
-              SizedBox(height: 100,),
+              !isHistoric ? SizedBox():
+              Card(
+                child: SizedBox(
+                  height: 100,
+                  width: 300,
+                  child: Center(
+                    child: Text(
+                      style: TextStyle(fontSize: 16),
+                      res == null ? (error ?? "") : res.toString(),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: !isHistoric ? 0 : 100),
               Row(
                 children: [
-                  SizedBox(width : 100, child:
-                  Text("Expression :"),),
-                  Expanded(child:
-                  TextField(
-                    controller: controllerExpr,
-                    textAlign: TextAlign.center,
-                  ),),
+                  SizedBox(width: 100, child: Text("Expression :")),
+                  Expanded(
+                    child: TextField(
+                      controller: controllerExpr,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ],
               ),
-              SizedBox(height: 30,),
+              SizedBox(height: 30),
               Row(
                 children: [
-                  SizedBox(width : 100, child: 
-                  Text("X =")),
-                  Expanded(child:
-                  TextField(
-                    controller: controllerX,
-                    textAlign: TextAlign.center,
-                  ),),
+                  SizedBox(width: 100, child: Text("X =")),
+                  Expanded(
+                    child: TextField(
+                      controller: controllerX,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ],
               ),
               SizedBox(height: 20),
@@ -122,16 +117,61 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: _incrementCounter,
                 child: Text("Compute"),
               ),
-              Expanded(child: 
-              ListView(children: last.map((string) => ListTile(title: Text(string),)).toList(),))
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => setState(() => isHistoric = !isHistoric,),
+                child: Text(isHistoric ? "List" : "Graph"),
+              ),
+              !isHistoric ? 
+              
+              Expanded(
+                child: ClipRRect(child: ZoomableCustomWidget(last.map((e) => e.iExpression,).toList())
+                )): 
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsetsGeometry.symmetric(
+                    vertical: 10.0,
+                    horizontal: 20.0,
+                  ),
+                  child: ListView(
+                    children: last
+                        .map(
+                          (lastExpression) => ListTile(
+                            title: Card(
+                              child: SizedBox(
+                                height: 50,
+                                child: Row(
+                                  children: [
+                                    Spacer(),
+                                    Text(lastExpression.expression),
+                                    Spacer(),
+                                    Text(
+                                      "evaluated with (x = ${lastExpression.x}) :",
+                                    ),
+                                    Spacer(),
+                                    Text(
+                                      lastExpression.res.toString().substring(
+                                        0,
+                                        min(
+                                          6,
+                                          lastExpression.res.toString().length,
+                                        ),
+                                      ),
+                                    ),
+                                    Spacer(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }

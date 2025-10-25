@@ -88,7 +88,7 @@ impl Expression{
             Function::Assign =>{
                 match &self.params[0].function {
                     Function::Variable(s) => {variables.insert(s.to_string(), param_values[1]); },
-                    _ => panic!("Incorrect use of assignement")
+                    _ => {return f32::NAN;}
                 }
                 param_values[1]
             },
@@ -121,10 +121,10 @@ impl Expression{
                                 }
                                 res
                             },  
-                            _ => panic!("Incorrect use of assignement"),
+                            _ => {return f32::NAN;}
                         }
                     }
-                    _ => panic!("Incorrect use of iterator")  
+                    _ => {return f32::NAN;} 
                 }
             }
         }
@@ -222,8 +222,7 @@ impl Operator {
             Operator::Assign => Function::Assign,
             Operator::Factorial => Function::SimpleFunction(|x| {
                 if x < 0.0 {
-                    return 0.0;
-                    //panic!("Factorial is not defined for negative numbers");
+                    return f32::NAN;
                 }
                 let mut result = 1.0;
                 let mut n = x as u32;
@@ -251,7 +250,25 @@ fn split_operator(s : &str) -> Vec<Token>{
         match Operator::from_char(c) {
             Some(op) => {
                 if !current_expr.is_empty() {
+                    match parts.last() {
+                        Some(Token::Operator(Operator::ParensClose)) => parts.push(Token::Operator(Operator::Mul)),
+                        _ => ()
+                    }
+
                     parts.push(Token::Identifier(current_expr));
+                }
+
+                match op {
+                    Operator::ParensOpen => {
+                        if !parts.is_empty(){
+                            if let Token::Identifier(last_id) = parts.last().unwrap() {
+                                if matches!(function_from_string(last_id), None) {
+                                    parts.push(Token::Operator(Operator::Mul));
+                                }
+                            }
+                        }
+                    },
+                    _ => ()
                 }
 
                 parts.push(Token::Operator(op));
@@ -261,6 +278,7 @@ fn split_operator(s : &str) -> Vec<Token>{
                 if !(c.is_ascii_digit() || c == '.') {
                     if !current_expr.is_empty() && is_numeric {
                         parts.push(Token::Identifier(current_expr));
+                        parts.push(Token::Operator(Operator::Mul));
                         current_expr = String::new();
                     }
                     is_numeric = false;
@@ -271,6 +289,10 @@ fn split_operator(s : &str) -> Vec<Token>{
     }
 
     if !current_expr.is_empty() {
+        match parts.last() {
+            Some(Token::Operator(Operator::ParensClose)) => parts.push(Token::Operator(Operator::Mul)),
+            _ => ()
+        }
         parts.push(Token::Identifier(current_expr));
     }
 
@@ -399,7 +421,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                 }
                 _ => { 
                     match func {
-                        Function::MultiFunction(_) | Function::SimpleFunction(_) | Function::Iterator(_) => panic!("Error unexpected identifier : {}", s),
+                        Function::MultiFunction(_) | Function::SimpleFunction(_) | Function::Iterator(_) => Err(format!("Error unexpected identifier : {}", s)),
                         Function::Assign |Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function : func, params: vec![]}),
                     }
                 }
@@ -437,17 +459,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
 pub fn parse_expression(s : &str) -> Result<Expression, String>{
     let mut tokens = split_operator(s);
     let mut filtered = filter_tokens_priority(&mut tokens)?;
-    let mut parsed = match_expression(&mut filtered)?;
-    while !filtered.is_empty() {
-        match parsed.function {
-            Function::Assign => {let e = Expression { function: Operator::Mul.get_function(), params: vec![parsed.params.remove(0), parsed.params.remove(0)]};
-            parsed.params.push(match_expression(&mut filtered)?);
-            parsed.params.push(e);
-            },
-            _ => parsed = Expression { function: Operator::Mul.get_function(), params: vec![parsed, match_expression(&mut filtered)?]  }
-        }
-    }
-    Ok(parsed)
+    Ok(match_expression(&mut filtered)?)
 }
 
 pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
