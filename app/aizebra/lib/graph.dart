@@ -108,8 +108,9 @@ class CurvePainter extends CustomPainter {
 }
 
 class ZoomableCustomWidget extends StatefulWidget {
-  const ZoomableCustomWidget(this.expressions, {super.key});
+  const ZoomableCustomWidget(this.expressions, this.callbackDT, {super.key});
   final List<int> expressions;
+  final void Function() callbackDT;
 
   @override
   State<ZoomableCustomWidget> createState() => _ZoomableCustomWidgetState();
@@ -145,6 +146,7 @@ class _ZoomableCustomWidgetState extends State<ZoomableCustomWidget> {
         onScaleStart: (details) {
           _baseScale = _currentScale;
         },
+        onDoubleTap:  widget.callbackDT,
         onScaleUpdate: (details) {
           setState(() {
             final box = context.findRenderObject() as RenderBox;

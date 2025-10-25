@@ -43,6 +43,7 @@ class _MyHomePageState extends State<MyHomePage> {
   int indexE = -1;
   List<LastExpression> last = [];
   bool isHistoric = true;
+  bool fullscreen = false;
 
 
   void _incrementCounter() {
@@ -65,13 +66,13 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: fullscreen ? null : AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text("AIzebra"),
       ),
       body: Center(
         child: Padding(
-          padding: EdgeInsetsGeometry.all(20.0),
+          padding: EdgeInsetsGeometry.all(fullscreen? 0.0 : 20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
@@ -89,7 +90,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
               SizedBox(height: !isHistoric ? 0 : 100),
-              Row(
+              fullscreen ? SizedBox() :Row(
                 children: [
                   SizedBox(width: 100, child: Text("Expression :")),
                   Expanded(
@@ -98,13 +99,17 @@ class _MyHomePageState extends State<MyHomePage> {
                       textAlign: TextAlign.center,
                     ),
                   ),
+                  ElevatedButton(
+                    onPressed: _incrementCounter,
+                    child: Text("Compute"),
+                  ),
                 ],
               ),
-              SizedBox(height: 30),
-              Row(
+              SizedBox(height: !isHistoric ? 0 : 30),
+              fullscreen ? SizedBox() :Row(
                 children: [
                   SizedBox(width: 100, child: Text("X =")),
-                  Expanded(
+                  SizedBox(width:100,
                     child: TextField(
                       controller: controllerX,
                       textAlign: TextAlign.center,
@@ -112,20 +117,16 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ],
               ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _incrementCounter,
-                child: Text("Compute"),
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
+              fullscreen ? SizedBox() : ElevatedButton(
                 onPressed: () => setState(() => isHistoric = !isHistoric,),
                 child: Text(isHistoric ? "List" : "Graph"),
               ),
               !isHistoric ? 
               
               Expanded(
-                child: ClipRRect(child: ZoomableCustomWidget(last.map((e) => e.iExpression,).toList())
+                child: ClipRRect(child: ZoomableCustomWidget(last.map((e) => e.iExpression,).toList(), (){setState(() {
+                  fullscreen = !fullscreen;
+                });})
                 )): 
               Expanded(
                 child: Padding(
@@ -134,27 +135,35 @@ class _MyHomePageState extends State<MyHomePage> {
                     horizontal: 20.0,
                   ),
                   child: ListView(
-                    children: last
-                        .map(
-                          (lastExpression) => ListTile(
-                            title: Card(
+                    children: List.generate(last.length,
+                          (index) => ListTile(
+                            title: Dismissible(
+                              direction:
+                                  DismissDirection.horizontal,
+                              onDismissed: (direction) {
+                                setState(() {
+                                  last.removeAt(index);
+                                });
+                              },
+                              key: ValueKey<LastExpression>(last[index]),
+                              child : Card(
                               child: SizedBox(
                                 height: 50,
                                 child: Row(
                                   children: [
                                     Spacer(),
-                                    Text(lastExpression.expression),
+                                    Text(last[index].expression),
                                     Spacer(),
                                     Text(
-                                      "evaluated with (x = ${lastExpression.x}) :",
+                                      "evaluated with (x = ${last[index].x}) :",
                                     ),
                                     Spacer(),
                                     Text(
-                                      lastExpression.res.toString().substring(
+                                      last[index].res.toString().substring(
                                         0,
                                         min(
                                           6,
-                                          lastExpression.res.toString().length,
+                                          last[index].res.toString().length,
                                         ),
                                       ),
                                     ),
@@ -162,6 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   ],
                                 ),
                               ),
+                            ),
                             ),
                           ),
                         )

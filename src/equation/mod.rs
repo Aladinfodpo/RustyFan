@@ -1,4 +1,6 @@
 use core::f32;
+use std::process::id;
+use std::time::Instant;
 use std::{vec};
 use std::collections::HashMap;
 
@@ -11,7 +13,8 @@ enum Function {
     Iterator(Operator),
     InputX,
     Variable(String),
-    Assign
+    Assign,
+    If
 }
 
 fn function_from_string(s : &str) -> Option<Function>{
@@ -48,6 +51,7 @@ fn function_from_string(s : &str) -> Option<Function>{
         "min" => Some(Function::MultiFunction(|x| x.iter().fold(f32::MAX, |min, next| min.min(*next)))),
         "sum" => Some(Function::Iterator(Operator::Add)),
         "prod" => Some(Function::Iterator(Operator::Mul)),
+        "if" => Some(Function::If),
         
         "pow" => Some(Function::MultiFunction(|x| x[0].powf(x[1]))),
         _ => None
@@ -63,7 +67,7 @@ impl Expression{
 
     pub fn evaluate(&self, x : f32, variables : &mut HashMap<String, f32>) -> f32{
         let param_values : Vec<f32> = match &self.function {
-            Function::Iterator(_) => vec![],
+            Function::Iterator(_) | Function::If => vec![],
             _ => self.params.iter().map(|e| e.evaluate(x, variables)).collect()
         };
         match &self.function {
@@ -84,6 +88,12 @@ impl Expression{
             }
             Function::InputX => {
                 x
+            },
+            Function::If => {
+                if self.params.len() < 3 { return f32::NAN; }
+                // Lazy evaluation
+                if self.params[0].evaluate(x, variables) > 0.0 { self.params[1].evaluate(x, variables) }
+                else{ self.params[2].evaluate(x, variables) }
             },
             Function::Assign =>{
                 match &self.params[0].function {
@@ -156,42 +166,69 @@ enum Operator {
     Comma,
     Factorial,
     Square,
-    Assign
+    Assign,
+    TestEQU,
+    TestNEQ,
+    TestLEQ,
+    TestLSS,
+    TestGEQ,
+    TestGTR,
 }
 
 impl Operator {
-    fn from_char(c: char) -> Option<Self> {
+    fn from_char(c: char, next: Option<&char>) -> Option<(Self, usize)> {
         match c {
-            '+' => Some(Operator::Add),
-            '-' => Some(Operator::Sub),
-            '*' => Some(Operator::Mul),
-            '/' => Some(Operator::Div),
-            '^' => Some(Operator::Pow),
-            '(' => Some(Operator::ParensOpen),
-            ')' => Some(Operator::ParensClose),
-            ' ' => Some(Operator::Space),
-            ',' => Some(Operator::Comma),
-            '!' => Some(Operator::Factorial),
-            '²' => Some(Operator::Square),
-            '=' => Some(Operator::Assign),
+            '+' => Some((Operator::Add, 1)),
+            '-' => Some((Operator::Sub, 1)),
+            '*' => Some((Operator::Mul, 1)),
+            '/' => Some((Operator::Div, 1)),
+            '^' => Some((Operator::Pow, 1)),
+            '(' => Some((Operator::ParensOpen, 1)),
+            ')' => Some((Operator::ParensClose, 1)),
+            ' ' => Some((Operator::Space, 1)),
+            ',' => Some((Operator::Comma, 1)),
+            '²' => Some((Operator::Square, 1)),
+            '=' => {match next {
+                    Some('=') =>Some((Operator::TestEQU, 2)),
+                    _ => Some((Operator::Assign, 1)),
+            }},
+            '!' => {match next {
+                    Some('=') =>Some((Operator::TestNEQ, 2)),
+                    _ => Some((Operator::Factorial, 1)),
+            }}, 
+            '<' => {match next {
+                    Some('=') =>Some((Operator::TestLEQ, 2)),
+                    _ => Some((Operator::TestLSS, 1)),
+            }},
+            '>' => {match next {
+                    Some('=') =>Some((Operator::TestGEQ, 2)),
+                    _ => Some((Operator::TestGTR, 1)),
+            }},
+
             _ => None,
         }
     }
-    fn to_char(&self) -> char {
+    fn to_string(&self) -> &str {
         match self {
-            Operator::Add => '+',
-            Operator::Sub => '-',
-            Operator::Mul => '*',
-            Operator::Div => '/',
-            Operator::Pow => '^',
-            Operator::ParensOpen => '(',
-            Operator::ParensClose => ')',
-            Operator::Space => ' ',
-            Operator::Comma => ',',
-            Operator::Factorial => '!',
-            Operator::Square => '²',
-            Operator::Assign => '=',
-        }
+            Operator::Add => "+",
+            Operator::Sub => "-",
+            Operator::Mul => "*",
+            Operator::Div => "/",
+            Operator::Pow => "^",
+            Operator::ParensOpen => "(",
+            Operator::ParensClose => ")",
+            Operator::Space => " ",
+            Operator::Comma => ",",
+            Operator::Factorial => "!",
+            Operator::Square => "²",
+            Operator::Assign => "=",
+            Operator::TestEQU => "==",
+            Operator::TestNEQ => "!=",
+            Operator::TestLEQ => "<=",
+            Operator::TestLSS => "<",
+            Operator::TestGEQ => ">=",
+            Operator::TestGTR => ">",
+            }
     }
 
     fn precedence(&self) -> u8 {
@@ -208,6 +245,12 @@ impl Operator {
             Operator::Comma => 255,
             Operator::Factorial => 5,
             Operator::Assign => 0,
+            Operator::TestEQU => 1,
+            Operator::TestNEQ => 1,
+            Operator::TestLEQ => 1,
+            Operator::TestLSS => 1,
+            Operator::TestGEQ => 1,
+            Operator::TestGTR => 1,
         }
     }
 
@@ -232,6 +275,12 @@ impl Operator {
                 }
                 result
             }),
+            Operator::TestEQU => Function::MultiFunction(|x| if x[0] == x[1] {1.0} else {0.0}),
+            Operator::TestNEQ => Function::MultiFunction(|x| if x[0] != x[1] {1.0} else {0.0}),
+            Operator::TestLEQ => Function::MultiFunction(|x| if x[0] <= x[1] {1.0} else {0.0}),
+            Operator::TestLSS => Function::MultiFunction(|x| if x[0] <  x[1] {1.0} else {0.0}),
+            Operator::TestGEQ => Function::MultiFunction(|x| if x[0] >= x[1] {1.0} else {0.0}),
+            Operator::TestGTR => Function::MultiFunction(|x| if x[0] >  x[1] {1.0} else {0.0}),
             _ => panic!("No function for this operator"),
         }
     }
@@ -246,9 +295,13 @@ fn split_operator(s : &str) -> Vec<Token>{
     let mut parts : Vec<Token> = vec![];
     let mut current_expr = String::new();
     let mut is_numeric = true;
-    for c in s.chars() {
-        match Operator::from_char(c) {
-            Some(op) => {
+    let mut index  = 0;
+    let vec_chars: Vec<char> = s.chars().collect();
+
+    while index < vec_chars.len() {
+        let c = vec_chars[index];
+        match Operator::from_char(c, vec_chars.get(index+1)) {
+            Some((op, nb_char)) => {
                 if !current_expr.is_empty() {
                     match parts.last() {
                         Some(Token::Operator(Operator::ParensClose)) => parts.push(Token::Operator(Operator::Mul)),
@@ -270,9 +323,9 @@ fn split_operator(s : &str) -> Vec<Token>{
                     },
                     _ => ()
                 }
-
                 parts.push(Token::Operator(op));
                 current_expr = String::new();
+                index += nb_char;
             }
             None => {
                 if !(c.is_ascii_digit() || c == '.') {
@@ -284,8 +337,11 @@ fn split_operator(s : &str) -> Vec<Token>{
                     is_numeric = false;
                 }
                 current_expr.push(c);
+                index += 1;
             }
         }
+
+        
     }
 
     if !current_expr.is_empty() {
@@ -407,7 +463,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                     match func {
                         Function::Assign | Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function: func, params: vec![]}),
                         Function::SimpleFunction(_) => Ok(Expression { function: func, params: vec![match_expression(tokens)?] }),
-                        Function::MultiFunction(_) | Function::Iterator(_) => {
+                        Function::MultiFunction(_) | Function::Iterator(_) | Function::If => {
                             let mut params : Vec<Expression> = vec![match_expression(tokens)?];
                             loop{
                                 match tokens.get(0) {
@@ -421,7 +477,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
                 }
                 _ => { 
                     match func {
-                        Function::MultiFunction(_) | Function::SimpleFunction(_) | Function::Iterator(_) => Err(format!("Error unexpected identifier : {}", s)),
+                        Function::MultiFunction(_) | Function::SimpleFunction(_) | Function::Iterator(_) | Function::If => Err(format!("Error unexpected identifier : {}", s)),
                         Function::Assign |Function::Constant(_) | Function::Variable(_) | Function::InputX => Ok(Expression{function : func, params: vec![]}),
                     }
                 }
@@ -446,7 +502,7 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
             panic!("Internal error, Spaces should have been removed");
         },
         Token::Operator(o @ (Operator::Comma | Operator::ParensClose)) => {
-            Err(format!("Unwaited operator : {}", o.to_char()))
+            Err(format!("Unwaited operator : {}", o.to_string()))
         }
         Token::Operator(o) =>{
             let e2 = match_expression(tokens)?;
@@ -471,7 +527,7 @@ pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
             let mut res : String = String::new();
             for t in new_tokens.iter() {
                 match t {
-                    Token::Operator(operator) => res += &operator.to_char().to_string(),
+                    Token::Operator(operator) => res += &operator.to_string(),
                     Token::Identifier(s) => res += &s,
                 }
             }
