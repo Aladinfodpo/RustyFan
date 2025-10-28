@@ -1,7 +1,7 @@
 #[path = "../../equation/mod.rs"]
 mod equation;
 
-use std::{io::stdin, ops, panic};
+use std::{io::stdin};
 use std::collections::HashMap;
 
 /*
@@ -88,11 +88,4 @@ fn main() {
         s.clear();
         println!("");
     }
-
-    //let b = Curve::create(10);
-    //b.print();
-    //println!("Expression evaluated to {}", parse_expression("(sin(x)^2) + (cos(x)^2)").evaluate(30.0)); 
-    //let c = Curve::sample_from_function(equation::Expression::create_from_function(f32::sin), 10, 0f32, f32::consts::PI);
-    //c.print();
-    //println!("Interpolated = {}", c.interpolated(0.5).fields[1]);
 }

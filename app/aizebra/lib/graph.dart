@@ -13,7 +13,7 @@ String formatLargeNumber(double number) {
   return formatter.format(number);
 }
 
-List<Color> colors = [Colors.blue, Colors.red, Colors.orange, Colors.green, Colors.yellow];
+List<Color> colors = [Colors.blue, Colors.red, Colors.orange, Colors.green, Colors.pink, Colors.purple, Colors.yellow];
 class CurvePainter extends CustomPainter {
   final List<Offset> data = [];
   final List<int> expressions;
@@ -47,7 +47,7 @@ class CurvePainter extends CustomPainter {
     final yMinOutScreen = rangeYMin-rangeYMin.abs()*10.0;
     final yMaxOutScreen = rangeYMax+rangeYMax.abs()*10.0;
 
-    final stepSampling = (rangeXMax - rangeXMin)/200.0;
+    final stepSampling = (rangeXMax - rangeXMin)/1000.0;
     final stepGrid = pow(10.0, log10((rangeXMax - rangeXMin)/10.0).round()) as double;
 
     Paint painterBack = Paint();
@@ -65,7 +65,7 @@ class CurvePainter extends CustomPainter {
     for (int iExpression in expressions) {
       Paint painterCurve = Paint();
       painterCurve.style = PaintingStyle.stroke;
-      painterCurve.color = colors[iExpression % 5];
+      painterCurve.color = colors[iExpression % colors.length];
       painterCurve.strokeWidth = 3.0;
       Offset? lastPoint;
       for (double i = rangeXMin; i <= rangeXMax; i += stepSampling) {

@@ -1,7 +1,6 @@
 mod equation;
 use std::sync::{OnceLock, Mutex};
 
-use std::ffi::CStr;
 use std::os::raw::{c_char, c_int};
 use std::ptr;
 

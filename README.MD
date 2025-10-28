@@ -1,6 +1,8 @@
 # aIzebra
 A mathematical expression parser and evaluator in rust and a graphical app connected in flutter.
 
+![Alt text](./screenshot.png)
+
 ## Compile aIzebra lib
 Execute these commands to create the new libs
 ```
