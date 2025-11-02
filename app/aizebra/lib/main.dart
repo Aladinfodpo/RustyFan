@@ -15,19 +15,17 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'AIzebra',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 38, 0, 255)),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -51,7 +49,7 @@ class _MyHomePageState extends State<MyHomePage> {
   List<LastExpression> last = [];
   List<LastExpression> parameters = [];
   bool hasHistoric = true;
-  bool isCalc = true;
+  bool isCalc = false;
   bool fullscreen = false;
 
   void _incrementCounter() {
@@ -160,13 +158,17 @@ class _MyHomePageState extends State<MyHomePage> {
                       ],
                     ),
               !isCalc
-                  ? Expanded(
-                      child: Row(
+                  ?  Expanded(
+                      child:
+                      LayoutBuilder(builder: (context, constraints) =>
+                        
+                      Flex(
+                        direction: constraints.maxHeight > constraints.maxWidth ? Axis.vertical : Axis.horizontal,
                         children: [
                           fullscreen || !hasHistoric
                               ? SizedBox()
-                              : SizedBox(
-                                  width: 300,
+                              : ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: constraints.maxHeight > constraints.maxWidth ? double.infinity : 300, maxHeight: constraints.maxHeight > constraints.maxWidth ?  constraints.maxHeight * 0.4 : double.infinity),
                                   child: Padding(
                                     padding: EdgeInsetsGeometry.symmetric(
                                       vertical: 10.0,
@@ -354,9 +356,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                             ),
                                           ).toList() 
                                           
-                                    ),
+                                    ),)
                                   ),
-                                ),
                           Expanded(
                             child: ClipRRect(
                               child: ZoomableCustomWidget(
@@ -371,6 +372,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ],
                       ),
+                      )
                     )
                   : Expanded(
                       child: Padding(

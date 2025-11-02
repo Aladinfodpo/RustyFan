@@ -4,7 +4,7 @@ import 'package:ffi/ffi.dart';
 
 ffi.DynamicLibrary _openRustLib() {
   if (Platform.isWindows) return ffi.DynamicLibrary.open('aIzebra.dll');
-  if (Platform.isAndroid) return ffi.DynamicLibrary.open('libaIzebra.so');
+  if (Platform.isAndroid) return ffi.DynamicLibrary.open('libaizebra.so');
   if (Platform.isMacOS)   return ffi.DynamicLibrary.open('librust_lib.dylib');
   if (Platform.isIOS)     return ffi.DynamicLibrary.process();
   throw UnsupportedError('Unsupported platform');

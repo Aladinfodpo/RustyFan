@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:math';
 import 'rust_lib.dart';
 import "package:intl/intl.dart" hide TextDirection;
@@ -19,6 +20,10 @@ class CurvePainter extends CustomPainter {
   final List<int> expressions;
   final double scale;
   final Offset focus;
+  static final double samplingRate = switch (defaultTargetPlatform) {
+  TargetPlatform.android => 250,
+  _ => 1000,
+};
 
   CurvePainter(this.expressions, this.scale, this.focus);
 
@@ -47,7 +52,7 @@ class CurvePainter extends CustomPainter {
     final yMinOutScreen = rangeYMin-rangeYMin.abs()*10.0;
     final yMaxOutScreen = rangeYMax+rangeYMax.abs()*10.0;
 
-    final stepSampling = (rangeXMax - rangeXMin)/1000.0;
+    final stepSampling = (rangeXMax - rangeXMin)/samplingRate;
     final stepGrid = pow(10.0, log10((rangeXMax - rangeXMin)/10.0).round()) as double;
 
     Paint painterBack = Paint();

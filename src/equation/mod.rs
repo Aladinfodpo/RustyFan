@@ -239,7 +239,7 @@ impl Operator {
             Operator::Square => 5, 
             Operator::ParensOpen => 255,
             Operator::ParensClose => 255,
-            Operator::Space => 0,
+            Operator::Space => 3,
             Operator::Comma => 255,
             Operator::Factorial => 5,
             Operator::Assign => 0,
@@ -395,9 +395,6 @@ fn filter_tokens_priority(input : &mut Vec<Token>) -> Result<Vec<Token>, String>
                 }
                 out.push(input.remove(0))
             }
-            Token::Operator(Operator::Space) => {
-                input.remove(0); // Drop it
-            },
             Token::Operator(o1) => {
                 while !operator_queue.is_empty() {
                     match &operator_queue.last().unwrap(){
@@ -488,16 +485,13 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
             // Switch between unary op and binary op
             let mut params = vec![match_expression(tokens)?];
             params.insert(0, match &tokens.get(0) {
-                None => Expression { params: vec![], function: Function::Constant(0.0) },
+                None | Some(Token::Operator(Operator::Comma)) | Some(Token::Operator(Operator::ParensClose)) => Expression { params: vec![], function: Function::Constant(0.0) },
                 _ => match_expression(tokens)?,
             });
             Ok(Expression{function: Operator::Sub.get_function(), params: params})
         },
         Token::Operator(Operator::ParensOpen) => { 
             panic!("Internal error, Parenthesis should have been removed");   
-        },
-        Token::Operator(Operator::Space) => {
-            panic!("Internal error, Spaces should have been removed");
         },
         Token::Operator(o @ (Operator::Comma | Operator::ParensClose)) => {
             Err(format!("Unwaited operator : {}", o.to_string()))
