@@ -154,7 +154,9 @@ impl Expression{
 
 enum Operator {
     Add,
+    UAdd,
     Sub,
+    USub,
     Mul,
     Div,
     Pow,
@@ -208,8 +210,8 @@ impl Operator {
     }
     fn to_string(&self) -> &str {
         match self {
-            Operator::Add => "+",
-            Operator::Sub => "-",
+            Operator::Add | Operator::UAdd=> "+",
+            Operator::Sub | Operator::USub => "-",
             Operator::Mul => "*",
             Operator::Div => "/",
             Operator::Pow => "^",
@@ -231,24 +233,17 @@ impl Operator {
 
     fn precedence(&self) -> u8 {
         match self {
-            Operator::Add => 2,
-            Operator::Sub => 2,
-            Operator::Mul => 3,
-            Operator::Div => 3,
-            Operator::Pow => 4,
-            Operator::Square => 5, 
-            Operator::ParensOpen => 255,
-            Operator::ParensClose => 255,
+            Operator::Add | Operator::Sub=> 2,
+            Operator::Mul | Operator::Div => 3,
+            Operator::UAdd | Operator::USub => 4,
+            Operator::Pow => 5,
+            Operator::Square => 6, 
+            Operator::ParensOpen | Operator::ParensClose => 255,
             Operator::Space => 3,
             Operator::Comma => 255,
-            Operator::Factorial => 5,
+            Operator::Factorial => 6,
             Operator::Assign => 0,
-            Operator::TestEQU => 1,
-            Operator::TestNEQ => 1,
-            Operator::TestLEQ => 1,
-            Operator::TestLSS => 1,
-            Operator::TestGEQ => 1,
-            Operator::TestGTR => 1,
+            Operator::TestEQU | Operator::TestNEQ | Operator::TestLEQ | Operator::TestLSS | Operator::TestGEQ | Operator::TestGTR => 1,
         }
     }
 
@@ -273,12 +268,15 @@ impl Operator {
                 }
                 result
             }),
+            Operator::UAdd => Function::SimpleFunction(|x| {x}),
+            Operator::USub => Function::SimpleFunction(|x| {-x}),
             Operator::TestEQU => Function::MultiFunction(|x| if x[0] == x[1] {1.0} else {0.0}),
             Operator::TestNEQ => Function::MultiFunction(|x| if x[0] != x[1] {1.0} else {0.0}),
             Operator::TestLEQ => Function::MultiFunction(|x| if x[0] <= x[1] {1.0} else {0.0}),
             Operator::TestLSS => Function::MultiFunction(|x| if x[0] <  x[1] {1.0} else {0.0}),
             Operator::TestGEQ => Function::MultiFunction(|x| if x[0] >= x[1] {1.0} else {0.0}),
             Operator::TestGTR => Function::MultiFunction(|x| if x[0] >  x[1] {1.0} else {0.0}),
+
             _ => panic!("No function for this operator"),
         }
     }
@@ -300,29 +298,30 @@ fn split_operator(s : &str) -> Vec<Token>{
         let c = vec_chars[index];
         match Operator::from_char(c, vec_chars.get(index+1)) {
             Some((op, nb_char)) => {
-                if !current_expr.is_empty() {
-                    match parts.last() {
-                        Some(Token::Operator(Operator::ParensClose)) => parts.push(Token::Operator(Operator::Mul)),
-                        _ => ()
-                    }
 
+                // Finish last identfier
+                if !current_expr.is_empty() {
                     parts.push(Token::Identifier(current_expr));
+                    current_expr = String::new();
                 }
 
                 match op {
-                    Operator::ParensOpen => {
-                        if !parts.is_empty(){
-                            if let Token::Identifier(last_id) = parts.last().unwrap() {
-                                if matches!(function_from_string(last_id), None) {
-                                    parts.push(Token::Operator(Operator::Mul));
-                                }
-                            }
+                    // Detect unary ops with same symbol
+                    o @ (Operator::Add | Operator::Sub) => {
+                        match parts.last() {
+                            None | Some(Token::Operator(Operator::Add | Operator::Sub | Operator::ParensOpen | Operator::Div | Operator::Mul | Operator::Pow)) => 
+                                parts.push(if matches!(o, Operator::Add) { Token::Operator(Operator::UAdd) } else {Token::Operator(Operator::USub) }),
+                            _ => parts.push(Token::Operator(o)) 
                         }
                     },
-                    _ => ()
+                    // Convert spaces
+                    Operator::Space => {
+                        
+                    },
+
+                    _ => parts.push(Token::Operator(op))
                 }
-                parts.push(Token::Operator(op));
-                current_expr = String::new();
+   
                 index += nb_char;
             }
             None => {
@@ -337,9 +336,7 @@ fn split_operator(s : &str) -> Vec<Token>{
                 current_expr.push(c);
                 index += 1;
             }
-        }
-
-        
+        }        
     }
 
     if !current_expr.is_empty() {
@@ -393,6 +390,7 @@ fn filter_tokens_priority(input : &mut Vec<Token>) -> Result<Vec<Token>, String>
                         Token::Identifier(_) => panic!("Internal error"),
                     }
                 }
+                if !matches!(operator_queue.last(), Some(Token::Operator(Operator::ParensOpen))) { return Err("Expected '(' before ','".to_string());}
                 out.push(input.remove(0))
             }
             Token::Operator(o1) => {
@@ -481,14 +479,8 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
         Token::Operator(o @ (Operator::Factorial | Operator::Square)) => {
             Ok(Expression{function : o.get_function(), params: vec![match_expression(tokens)?]})
         },
-        Token::Operator(Operator::Sub) => { 
-            // Switch between unary op and binary op
-            let mut params = vec![match_expression(tokens)?];
-            params.insert(0, match &tokens.get(0) {
-                None | Some(Token::Operator(Operator::Comma)) | Some(Token::Operator(Operator::ParensClose)) => Expression { params: vec![], function: Function::Constant(0.0) },
-                _ => match_expression(tokens)?,
-            });
-            Ok(Expression{function: Operator::Sub.get_function(), params: params})
+        Token::Operator(o @ (Operator::USub | Operator::UAdd)) => { 
+            Ok(Expression{function: o.get_function(), params: vec![match_expression(tokens)?]})
         },
         Token::Operator(Operator::ParensOpen) => { 
             panic!("Internal error, Parenthesis should have been removed");   
@@ -507,7 +499,11 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
 pub fn parse_expression(s : &str) -> Result<Expression, String>{
     let mut tokens = split_operator(s);
     let mut filtered = filter_tokens_priority(&mut tokens)?;
-    Ok(match_expression(&mut filtered)?)
+    let mut expression = match_expression(&mut filtered)?;
+    while !filtered.is_empty(){
+        expression = Expression{function : Operator::Mul.get_function(), params: vec![match_expression(&mut filtered)?, expression]};
+    }
+    Ok(expression)
 }
 
 pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
@@ -531,4 +527,47 @@ pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
         }
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_parsing() -> Result<(), String> {
+        parse_expression("4*5")?;
+        parse_expression("sin(x)")?;
+        parse_expression("sin( x)")?;
+        parse_expression("4 max( 1)")?;
+        parse_expression("4*-5")?;
+        parse_expression("sin(-x)")?;
+        parse_expression("-sin(x)")?;
+        parse_expression("-4-sin(x)")?;
+        parse_expression("max(4)max(4)")?;
+        parse_expression("(5)(5)")?;
+        parse_expression("max(4)(4)")?;
+
+        assert_eq!(parse_expression("4 max( 1)")?.simple_evaluate(0.0), 4.0);
+        assert_eq!(parse_expression("max(4)max(4)")?.simple_evaluate(0.0), 16.0);
+        assert_eq!(parse_expression("4 max(4)")?.simple_evaluate(0.0), 16.0);
+        assert_eq!(parse_expression("(4)(4)")?.simple_evaluate(0.0), 16.0);
+        assert_eq!(parse_expression("max(4 , 4*5) ")?.simple_evaluate(0.0), 20.0);
+        assert_eq!(parse_expression("4 max(-1)")?.simple_evaluate(0.0), -4.0);
+        assert_eq!(parse_expression("-4-max( 4, 2 ,5)")?.simple_evaluate(0.0), -9.0);
+        assert_eq!(parse_expression("4 5")?.simple_evaluate(0.0), 20.0);
+        assert_eq!(parse_expression("max(4) 4")?.simple_evaluate(0.0), 16.0);
+        assert_eq!(parse_expression("max(4) + 4")?.simple_evaluate(0.0), 8.0);
+        assert_eq!(parse_expression(" a = max(4) + 4")?.simple_evaluate(0.0), 8.0);
+        
+        assert!(matches!(parse_expression("("), Err(_)));
+        assert!(matches!(parse_expression(")"), Err(_)));
+        assert!(matches!(parse_expression("max(4"), Err(_)));
+        assert!(matches!(parse_expression("max(4,"), Err(_)));
+        assert!(matches!(parse_expression("*5"), Err(_)));
+        assert!(matches!(parse_expression("(5,5)"), Err(_)));
+        assert!(matches!(parse_expression("exp"), Err(_)));
+        assert!(matches!(parse_expression("exp()"), Err(_)));
+        Ok(())
+    }
 }

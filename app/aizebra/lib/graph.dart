@@ -14,6 +14,10 @@ String formatLargeNumber(double number) {
   return formatter.format(number);
 }
 
+String formatNumber(double number) {
+  return number.abs() > 0.0001 ? NumberFormat('0.####', 'en_US').format(number) : NumberFormat('0.########', 'en_US').format(number);
+}
+
 List<Color> colors = [Colors.blue, Colors.red, Colors.orange, Colors.green, Colors.pink, Colors.purple, Colors.yellow];
 class CurvePainter extends CustomPainter {
   final List<Offset> data = [];

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'rust_lib.dart';
 import 'graph.dart';
 import 'dart:math';
+import "package:intl/intl.dart" hide TextDirection;
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +18,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'AIzebra',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 38, 0, 255)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 38, 0, 255),
+        ),
       ),
       home: const MyHomePage(),
     );
@@ -36,11 +39,11 @@ typedef LastExpression = ({
   double x,
   double res,
   int iExpression,
-  bool visible
+  bool visible,
 });
 
 class _MyHomePageState extends State<MyHomePage> {
-  TextEditingController controllerExpr = TextEditingController(text: "sin(x)");
+  TextEditingController controllerExpr = TextEditingController(text: "");
   TextEditingController controllerX = TextEditingController(text: "20");
   TextEditingController controllerNewParam = TextEditingController(text: "a");
   double? res;
@@ -69,7 +72,7 @@ class _MyHomePageState extends State<MyHomePage> {
           x: x,
           res: res!,
           iExpression: indexE,
-          visible: true
+          visible: true,
         ));
       }
     });
@@ -99,7 +102,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         child: Center(
                           child: Text(
                             style: TextStyle(fontSize: 16),
-                            res == null ? (error ?? "") : res.toString(),
+                            res == null ? (error ?? "") : formatNumber(res!),
                           ),
                         ),
                       ),
@@ -158,221 +161,271 @@ class _MyHomePageState extends State<MyHomePage> {
                       ],
                     ),
               !isCalc
-                  ?  Expanded(
-                      child:
-                      LayoutBuilder(builder: (context, constraints) =>
-                        
-                      Flex(
-                        direction: constraints.maxHeight > constraints.maxWidth ? Axis.vertical : Axis.horizontal,
-                        children: [
-                          fullscreen || !hasHistoric
-                              ? SizedBox()
-                              : ConstrainedBox(
-                                  constraints: BoxConstraints(maxWidth: constraints.maxHeight > constraints.maxWidth ? double.infinity : 300, maxHeight: constraints.maxHeight > constraints.maxWidth ?  constraints.maxHeight * 0.4 : double.infinity),
-                                  child: Padding(
-                                    padding: EdgeInsetsGeometry.symmetric(
-                                      vertical: 10.0,
-                                      horizontal: 1.0,
+                  ? Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => Flex(
+                          direction:
+                              constraints.maxHeight > constraints.maxWidth
+                              ? Axis.vertical
+                              : Axis.horizontal,
+                          children: [
+                            fullscreen || !hasHistoric
+                                ? SizedBox()
+                                : ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          constraints.maxHeight >
+                                              constraints.maxWidth
+                                          ? double.infinity
+                                          : 300,
+                                      maxHeight:
+                                          constraints.maxHeight >
+                                              constraints.maxWidth
+                                          ? constraints.maxHeight * 0.4
+                                          : double.infinity,
                                     ),
-                                    child: ListView(
-                                      children:
-                                          List.generate(
-                                            parameters.length,
-                                            (index) => ListTile(
-                                              title: Dismissible(
-                                                direction:
-                                                    DismissDirection.horizontal,
-                                                onDismissed: (direction) {
-                                                  setState(() {
-                                                    Parser().evaluate(
-                                                      parameters[index]
-                                                          .iExpression,
-                                                      0,
-                                                    );
-                                                    //Update ? todo better ?
-                                                    last.add(parameters[index]);
-                                                    last.removeLast();
-                                                    parameters.removeAt(index);
-                                                  });
-                                                },
-                                                key: ValueKey<String>(
-                                                  parameters[index].expression + index.toString(),
-                                                ),
-                                                child: Card(
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Text(
+                                    child: Padding(
+                                      padding: EdgeInsetsGeometry.symmetric(
+                                        vertical: 10.0,
+                                        horizontal: 1.0,
+                                      ),
+                                      child: ListView(
+                                        children:
+                                            List.generate(
+                                              parameters.length,
+                                              (index) => ListTile(
+                                                title: Dismissible(
+                                                  direction: DismissDirection
+                                                      .horizontal,
+                                                  onDismissed: (direction) {
+                                                    setState(() {
+                                                      Parser().evaluate(
                                                         parameters[index]
-                                                            .expression,
-                                                      ),
-
-                                                      Slider(
-                                                        value:
-                                                            parameters[index].x,
-                                                        min: -10.0,
-                                                        max: 10.0,
-                                                        onChanged: (value) => setState(() {
-                                                          Parser().evaluate(
-                                                            parameters[index]
-                                                                .iExpression,
-                                                            value,
-                                                          );
-                                                          parameters[index] = (
-                                                            expression:
-                                                                parameters[index]
-                                                                    .expression,
-                                                            iExpression: parameters[index]
-                                                                .iExpression,
-                                                            res: 0.0,
-                                                            x: value,
-                                                            visible: true
-                                                          );
-
-                                                          //Update ? todo better ?
-                                                          last.add(
-                                                            parameters[index],
-                                                          );
-                                                          last.removeLast();
-                                                        }),
-                                                      ),
-                                                      Text(
-                                                        parameters[index].x
-                                                            .toStringAsFixed(2),
-                                                      ),
-                                                    ],
+                                                            .iExpression,
+                                                        0,
+                                                      );
+                                                      //Update ? todo better ?
+                                                      last.add(
+                                                        parameters[index],
+                                                      );
+                                                      last.removeLast();
+                                                      parameters.removeAt(
+                                                        index,
+                                                      );
+                                                    });
+                                                  },
+                                                  key: ValueKey<String>(
+                                                    parameters[index]
+                                                            .expression +
+                                                        index.toString(),
                                                   ),
-                                                ),
-                                              ),
-                                            ),
-                                          ).toList() +
-                                          [
-                                            ListTile(
-                                              title:Card(child: 
-                                              Padding(padding: EdgeInsetsGeometry.symmetric(vertical: 10, horizontal: 10), child: Row(
-                                                children: [
-                                                  Expanded(child: 
-                                                  TextField(
-                                                    textAlign: TextAlign.center,
-                                                    controller:
-                                                        controllerNewParam,
-                                                  ),),
-                                                  IconButton(
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        Parser().parse(
-                                                          "${controllerNewParam.text}=x",
-                                                        );
-                                                        parameters.add((
-                                                          expression: controllerNewParam.text,
-                                                          iExpression: ++indexE,
-                                                          res: 0,
-                                                          x: 0,
-                                                          visible: true
-                                                        ));
-                                                        Parser().evaluate(
-                                                          indexE,
-                                                          0,
-                                                        );
-
-                                                        //Update ? todo better ?
-                                                        last.add(
-                                                          parameters.last,
-                                                        );
-                                                        last.removeLast();
-                                                      });
-                                                    },
-                                                    icon: Icon(Icons.add),
-                                                  ),
-                                                ],
-                                              ),),),
-                                            ),
-                                            ListTile(title: Divider(),)
-                                          ]+
-                                          
-                                          List.generate(
-                                            last.length,
-                                            (index) => ListTile(
-                                              title: Dismissible(
-                                                direction:
-                                                    DismissDirection.horizontal,
-                                                onDismissed: (direction) {
-                                                  setState(() {
-                                                    last.removeAt(index);
-                                                  });
-                                                },
-                                                key: ValueKey<LastExpression>(
-                                                  last[index],
-                                                ),
-                                                child: Card(
-                                                  child: SizedBox(
-                                                    height: 50,
-                                                    child: Row(
+                                                  child: Card(
+                                                    child: Column(
                                                       mainAxisAlignment:
                                                           MainAxisAlignment
-                                                              .start,
+                                                              .center,
                                                       children: [
-                                                        SizedBox(width: 20),
-                                                        SizedBox(
-                                                          width: 20,
-                                                          height: 20,
-                                                          child: Container(
-                                                            color:
-                                                                colors[last[index]
-                                                                        .iExpression %
-                                                                    colors
-                                                                        .length],
-                                                          ),
-                                                        ),
-                                                        SizedBox(width: 20),
                                                         Text(
-                                                          last[index]
+                                                          parameters[index]
                                                               .expression,
                                                         ),
-                                                        Spacer(),
-                                                        IconButton(onPressed: () => setState(() {
-                                                          last[index]
-                                                              = (
-                                                            expression:
-                                                                last[index]
-                                                              .expression,
-                                                            iExpression: last[index]
-                                                              .iExpression,
-                                                            res: last[index]
-                                                              .res,
-                                                            x: last[index]
-                                                              .x,
-                                                            visible: !last[index]
-                                                              .visible
-                                                          );
-                                                        }), icon: Icon(last[index].visible ? Icons.visibility : Icons.visibility_off))
+
+                                                        Slider(
+                                                          value:
+                                                              parameters[index]
+                                                                  .x,
+                                                          min: -10.0,
+                                                          max: 10.0,
+                                                          onChanged: (value) => setState(() {
+                                                            Parser().evaluate(
+                                                              parameters[index]
+                                                                  .iExpression,
+                                                              value,
+                                                            );
+                                                            parameters[index] = (
+                                                              expression:
+                                                                  parameters[index]
+                                                                      .expression,
+                                                              iExpression:
+                                                                  parameters[index]
+                                                                      .iExpression,
+                                                              res: 0.0,
+                                                              x: value,
+                                                              visible: true,
+                                                            );
+
+                                                            //Update ? todo better ?
+                                                            last.add(
+                                                              parameters[index],
+                                                            );
+                                                            last.removeLast();
+                                                          }),
+                                                        ),
+                                                        Text(
+                                                          parameters[index].x
+                                                              .toStringAsFixed(
+                                                                2,
+                                                              ),
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ).toList() 
-                                          
-                                    ),)
+                                            ).toList() +
+                                            [
+                                              ListTile(
+                                                title: Card(
+                                                  child: Padding(
+                                                    padding:
+                                                        EdgeInsetsGeometry.symmetric(
+                                                          vertical: 10,
+                                                          horizontal: 10,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: TextField(
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                            controller:
+                                                                controllerNewParam,
+                                                          ),
+                                                        ),
+                                                        IconButton(
+                                                          onPressed: () {
+                                                            setState(() {
+                                                              Parser().parse(
+                                                                "${controllerNewParam.text}=x",
+                                                              );
+                                                              parameters.add((
+                                                                expression:
+                                                                    controllerNewParam
+                                                                        .text,
+                                                                iExpression:
+                                                                    ++indexE,
+                                                                res: 0,
+                                                                x: 0,
+                                                                visible: true,
+                                                              ));
+                                                              Parser().evaluate(
+                                                                indexE,
+                                                                0,
+                                                              );
+
+                                                              //Update ? todo better ?
+                                                              last.add(
+                                                                parameters.last,
+                                                              );
+                                                              last.removeLast();
+                                                            });
+                                                          },
+                                                          icon: Icon(Icons.add),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              ListTile(title: Divider()),
+                                            ] +
+                                            List.generate(
+                                              last.length,
+                                              (index) => ListTile(
+                                                title: Dismissible(
+                                                  direction: DismissDirection
+                                                      .horizontal,
+                                                  onDismissed: (direction) {
+                                                    setState(() {
+                                                      last.removeAt(index);
+                                                    });
+                                                  },
+                                                  key: ValueKey<LastExpression>(
+                                                    last[index],
+                                                  ),
+                                                  child: Card(
+                                                    child: SizedBox(
+                                                      height: 50,
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          SizedBox(width: 20),
+                                                          SizedBox(
+                                                            width: 20,
+                                                            height: 20,
+                                                            child: Container(
+                                                              color:
+                                                                  colors[last[index]
+                                                                          .iExpression %
+                                                                      colors
+                                                                          .length],
+                                                            ),
+                                                          ),
+                                                          SizedBox(width: 20),
+                                                          Text(
+                                                            last[index]
+                                                                .expression,
+                                                          ),
+                                                          Spacer(),
+                                                          IconButton(
+                                                            onPressed: () => setState(() {
+                                                              last[index] = (
+                                                                expression:
+                                                                    last[index]
+                                                                        .expression,
+                                                                iExpression:
+                                                                    last[index]
+                                                                        .iExpression,
+                                                                res: last[index]
+                                                                    .res,
+                                                                x: last[index]
+                                                                    .x,
+                                                                visible:
+                                                                    !last[index]
+                                                                        .visible,
+                                                              );
+                                                            }),
+                                                            icon: Icon(
+                                                              last[index]
+                                                                      .visible
+                                                                  ? Icons
+                                                                        .visibility
+                                                                  : Icons
+                                                                        .visibility_off,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ).toList(),
+                                      ),
+                                    ),
                                   ),
-                          Expanded(
-                            child: ClipRRect(
-                              child: ZoomableCustomWidget(
-                                last.map((e) => e.visible ? e.iExpression : -1).where((element) => element >= 0).toList(),
-                                () {
-                                  setState(() {
-                                    fullscreen = !fullscreen;
-                                  });
-                                },
+                            Expanded(
+                              child: ClipRRect(
+                                child: ZoomableCustomWidget(
+                                  last
+                                      .map(
+                                        (e) => e.visible ? e.iExpression : -1,
+                                      )
+                                      .where((element) => element >= 0)
+                                      .toList(),
+                                  () {
+                                    setState(() {
+                                      fullscreen = !fullscreen;
+                                    });
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      )
                     )
                   : Expanded(
                       child: Padding(
@@ -414,6 +467,12 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ),
                                         ),
                                         Spacer(),
+                                        IconButton(
+                                          onPressed: () => setState(() {
+                                            last.removeAt(index);
+                                          }),
+                                          icon: Icon(Icons.delete),
+                                        ),
                                       ],
                                     ),
                                   ),
