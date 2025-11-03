@@ -315,10 +315,9 @@ fn split_operator(s : &str) -> Vec<Token>{
                         }
                     },
                     // Convert spaces
-                    Operator::Space => {
-                        
-                    },
-
+                    Operator::Space => {},
+                    
+                    // Else just push operator
                     _ => parts.push(Token::Operator(op))
                 }
    
@@ -349,6 +348,26 @@ fn split_operator(s : &str) -> Vec<Token>{
 
     return parts;
 }
+
+fn add_implicit_mul(input : &mut Vec<Token>) -> Vec<Token>{
+    let mut out = Vec::with_capacity(input.len());
+    let mut last_is_potential = false;
+    while !input.is_empty() {
+        match &input[0] {
+            Token::Identifier(_) | Token::Operator(Operator::ParensOpen) if last_is_potential => out.push(Token::Operator(Operator::Mul)),
+            _ => ()
+        }
+
+        match &input[0]{
+            Token::Operator(Operator::ParensClose) => last_is_potential = true,
+            Token::Identifier(s) => last_is_potential = matches!(function_from_string(&s), None),
+            _ => last_is_potential = false,
+        }
+        out.push(input.remove(0));
+    }
+    out
+}
+
 
 // Shunting yard algorithm
 fn filter_tokens_priority(input : &mut Vec<Token>) -> Result<Vec<Token>, String>{
@@ -498,17 +517,20 @@ fn match_expression(tokens : &mut Vec<Token>) -> Result<Expression, String>{
 
 pub fn parse_expression(s : &str) -> Result<Expression, String>{
     let mut tokens = split_operator(s);
-    let mut filtered = filter_tokens_priority(&mut tokens)?;
-    let mut expression = match_expression(&mut filtered)?;
-    while !filtered.is_empty(){
-        expression = Expression{function : Operator::Mul.get_function(), params: vec![match_expression(&mut filtered)?, expression]};
+    let mut tokens_implicit_mul = add_implicit_mul(&mut tokens);
+    let mut filtered = filter_tokens_priority(&mut tokens_implicit_mul)?;
+    let expression = match_expression(&mut filtered)?;
+    match filtered.last() {
+        None => Ok(expression),
+        Some(Token::Identifier(s)) => Err(format!("Expected EOF but got : {}", s)),
+        Some(Token::Operator(o)) => Err(format!("Expected EOF but got : {}", o.to_string()))
     }
-    Ok(expression)
 }
 
 pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
     let mut tokens = split_operator(&s);
-    let res_parsing = filter_tokens_priority(&mut tokens);
+    let mut tokens_implicit_mul = add_implicit_mul(&mut tokens);
+    let res_parsing = filter_tokens_priority(&mut tokens_implicit_mul);
     match res_parsing {
         Err(e) => print!("Parsing failed with : {}", e),
         Ok(new_tokens) =>{
@@ -518,8 +540,9 @@ pub fn test_filter(s: String, variables : &mut HashMap<String, f32>) {
                     Token::Operator(operator) => res += &operator.to_string(),
                     Token::Identifier(s) => res += &s,
                 }
+                res += ";";
             }
-            println!("Pased           : {}", res);
+            println!("Parsed           : {}", res);
             println!("Evaluated (30.0): {}", match parse_expression(&s){
                 Ok(expression) => expression.evaluate(30.0, variables).to_string(),
                 Err(e) => e
@@ -547,6 +570,8 @@ mod tests {
         parse_expression("max(4)max(4)")?;
         parse_expression("(5)(5)")?;
         parse_expression("max(4)(4)")?;
+        parse_expression("max(1,4 4)")?;
+        println!("Parsing ok");
 
         assert_eq!(parse_expression("4 max( 1)")?.simple_evaluate(0.0), 4.0);
         assert_eq!(parse_expression("max(4)max(4)")?.simple_evaluate(0.0), 16.0);
@@ -559,6 +584,8 @@ mod tests {
         assert_eq!(parse_expression("max(4) 4")?.simple_evaluate(0.0), 16.0);
         assert_eq!(parse_expression("max(4) + 4")?.simple_evaluate(0.0), 8.0);
         assert_eq!(parse_expression(" a = max(4) + 4")?.simple_evaluate(0.0), 8.0);
+        assert_eq!(parse_expression(" max(1,4 4)")?.simple_evaluate(0.0), 16.0);
+        println!("Evaluating ok");
         
         assert!(matches!(parse_expression("("), Err(_)));
         assert!(matches!(parse_expression(")"), Err(_)));
@@ -568,6 +595,7 @@ mod tests {
         assert!(matches!(parse_expression("(5,5)"), Err(_)));
         assert!(matches!(parse_expression("exp"), Err(_)));
         assert!(matches!(parse_expression("exp()"), Err(_)));
+        println!("Errorring ok");
         Ok(())
     }
 }
